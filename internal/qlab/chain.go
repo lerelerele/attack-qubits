@@ -188,7 +188,8 @@ func genesisBlock() Block {
 }
 
 // BlockHash is the deterministic hash of a block: sha256 over the prev_hash and
-// the canonical (lexicographically-keyed) JSON of its events. Nonce is excluded
+// the JSON of its events. The encoding is deterministic because encoding/json
+// emits struct fields in declaration order and sorts map keys. Nonce is excluded
 // so that the field can be used later without re-defining the chain identity.
 func BlockHash(b Block) string {
 	payload, _ := json.Marshal(eventsCanonical{PrevHash: b.PrevHash, Events: b.Events})

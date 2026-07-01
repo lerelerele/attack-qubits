@@ -117,8 +117,11 @@ func challenge(args []string) {
 
 // reorderFlags moves flag tokens (and their values) before positional args so
 // that stdlib flag parsing accepts the natural "cmd <level> -flag value" order.
-// It assumes every flag takes a value (true for all qlabcoin flags: -max,
-// -solution, -circuit, -backend, -registry). A "-x=v" token is self-contained.
+// A "-x=v" token is self-contained; otherwise the next token is taken as the
+// flag's value unless it starts with '-'. Two consequences for flag authors:
+// a boolean flag (like mitigation's -list) followed by a positional argument
+// would swallow it, and a value that itself starts with '-' must be written in
+// the -x=v form. Neither case arises with the current command set.
 func reorderFlags(args []string) []string {
 	var flags, pos []string
 	for i := 0; i < len(args); i++ {
@@ -221,10 +224,7 @@ func submit(args []string) {
 	toy := qlab.ToyOrderChallengeForLevel(n)
 
 	// Load chain and derive the current registry to validate against live state.
-	chain := qlab.NewChain(*chainPath)
-	if err := chain.Load(); err != nil {
-		fatal(err)
-	}
+	chain := loadChain(*chainPath)
 	reg, err := qlab.DeriveRegistry(chain)
 	if err != nil {
 		fatal(err)
@@ -293,10 +293,7 @@ func transition(args []string) {
 		fmt.Fprintf(os.Stderr, "unknown or non-recordable state %q (recordable: hardened, reopened)\n", rest[1])
 		os.Exit(2)
 	}
-	chain := qlab.NewChain(*chainPath)
-	if err := chain.Load(); err != nil {
-		fatal(err)
-	}
+	chain := loadChain(*chainPath)
 	reg, err := qlab.DeriveRegistry(chain)
 	if err != nil {
 		fatal(err)
@@ -352,10 +349,7 @@ func reproduce(args []string) {
 			os.Exit(2)
 		}
 	}
-	chain := qlab.NewChain(*chainPath)
-	if err := chain.Load(); err != nil {
-		fatal(err)
-	}
+	chain := loadChain(*chainPath)
 	reg, err := qlab.DeriveRegistry(chain)
 	if err != nil {
 		fatal(err)
@@ -408,10 +402,7 @@ func state(args []string) {
 	fs := flag.NewFlagSet("state", flag.ExitOnError)
 	chainPath := fs.String("chain", qlab.DefaultChainPath, "chain file path")
 	_ = fs.Parse(reorderFlags(args))
-	chain := qlab.NewChain(*chainPath)
-	if err := chain.Load(); err != nil {
-		fatal(err)
-	}
+	chain := loadChain(*chainPath)
 	reg, err := qlab.DeriveRegistry(chain)
 	if err != nil {
 		fatal(err)
@@ -424,7 +415,9 @@ func state(args []string) {
 	})
 }
 
-// history dumps the full chain (blocks with hashes and events) as JSON.
+// history dumps the full chain (blocks with hashes and events) as JSON. It
+// deliberately skips integrity verification so a corrupt chain can still be
+// inspected; verify-chain is the command that gives the integrity verdict.
 func history(args []string) {
 	fs := flag.NewFlagSet("history", flag.ExitOnError)
 	chainPath := fs.String("chain", qlab.DefaultChainPath, "chain file path")
@@ -493,10 +486,7 @@ func mitigation(args []string) {
 	// Determine the mode: explicit -mode overrides the derived one.
 	mode := qlab.MitigationMode(*modeFlag)
 	if *modeFlag == "" {
-		chain := qlab.NewChain(*chainPath)
-		if err := chain.Load(); err != nil {
-			fatal(err)
-		}
+		chain := loadChain(*chainPath)
 		reg, err := qlab.DeriveRegistry(chain)
 		if err != nil {
 			fatal(err)
@@ -543,6 +533,9 @@ func maxBrokenFromChain(chainPath string) int {
 	if err := chain.Load(); err != nil {
 		return 0
 	}
+	if err := chain.Verify(); err != nil {
+		return 0
+	}
 	reg, err := qlab.DeriveRegistry(chain)
 	if err != nil {
 		return 0
@@ -574,6 +567,22 @@ func mustLevel(raw string) int {
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+// loadChain opens the chain at path and checks its hash links before any
+// command uses it as the source of truth, so a tampered file is refused rather
+// than silently extended or reported as live state. history skips this on
+// purpose (a corrupt chain must remain inspectable); verify-chain reports the
+// two failure kinds separately.
+func loadChain(path string) *qlab.Chain {
+	chain := qlab.NewChain(path)
+	if err := chain.Load(); err != nil {
+		fatal(err)
+	}
+	if err := chain.Verify(); err != nil {
+		fatal(fmt.Errorf("chain integrity check failed (see verify-chain): %w", err))
+	}
+	return chain
 }
 
 // nowRFC3339 returns the current UTC time in RFC3339, the format used for chain

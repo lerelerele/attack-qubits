@@ -51,7 +51,16 @@ so it can be repurposed later without redefining chain identity.
 
 Use `qlabcoin verify-chain` to check that every `prev_hash` matches the recomputed
 hash of the previous block, and that all events replay to a valid registry. Any
-edit to a recorded event (or to a link) makes the chain fail verification.
+edit to a recorded event (or to a link) breaks a hash link — except an edit to
+the *last* block, which no later `prev_hash` binds. To close that gap, replay
+re-runs classical verification on recorded solutions for families that have a
+verifier (today: toy-order-finding), so a tampered head block with a bogus
+solution is refused too.
+
+Every command that treats the chain as the source of truth (`submit`,
+`transition`, `reproduce`, `state`, `mitigation`) verifies the hash links right
+after loading and refuses a tampered file. `history` deliberately skips this so
+a corrupt chain can still be inspected.
 
 ## Events
 
@@ -104,7 +113,8 @@ reproduce  -> recorded against an already-broken level; positive results
 
 An event that violates a valid transition (e.g. hardening a level that is not
 broken, or reproducing one that has never been broken) makes the chain corrupt:
-`verify-chain` and `state` will refuse it.
+`verify-chain` and `state` will refuse it. So does a `submit` event whose
+recorded solution fails classical re-verification for its level's family.
 
 ## CLI
 

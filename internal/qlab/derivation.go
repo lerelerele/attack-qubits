@@ -1,6 +1,9 @@
 package qlab
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // DeriveRegistry replays the chain in order and reconstructs the live registry.
 // The chain is the single source of truth; the registry is a derived view.
@@ -39,6 +42,9 @@ func applyEvent(r *Registry, ev Event) error {
 		if e.State != StateOpen {
 			return fmt.Errorf("level %d is %s, cannot submit", ev.Level, e.State)
 		}
+		if err := verifySubmissionOnReplay(ev.Level, ev.Submission); err != nil {
+			return err
+		}
 		s := *ev.Submission
 		s.ChallengeID = e.ChallengeID
 		s.Level = ev.Level
@@ -56,6 +62,26 @@ func applyEvent(r *Registry, ev Event) error {
 	default:
 		return fmt.Errorf("level %d: unknown event type %q", ev.Level, ev.Type)
 	}
+}
+
+// verifySubmissionOnReplay re-runs classical verification for families that have
+// a verifier. The chain records claims, but replay must not trust them blindly:
+// the head block is not bound by any later prev_hash, so a tampered head could
+// otherwise smuggle in a bogus solution that verify-chain would accept. Families
+// without a classical verifier (quantum-primitive, toy-ecdlp) are accepted as-is.
+func verifySubmissionOnReplay(level int, s *Submission) error {
+	if !IsToyOrderLevel(level) {
+		return nil
+	}
+	toy := ToyOrderChallengeForLevel(level)
+	k, err := strconv.Atoi(s.Solution)
+	if err != nil {
+		return fmt.Errorf("level %d: recorded solution %q is not an integer", level, s.Solution)
+	}
+	if !VerifyOrder(level, toy.Modulus, toy.Base, k) {
+		return fmt.Errorf("level %d: recorded solution %q fails classical verification", level, s.Solution)
+	}
+	return nil
 }
 
 // applyReproduction records an independent corroboration against an already-broken

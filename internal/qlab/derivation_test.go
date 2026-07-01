@@ -50,6 +50,48 @@ func TestDeriveRegistryRejectsInvalidEvent(t *testing.T) {
 	}
 }
 
+// TestDeriveRegistryRejectsBogusSolution: replay must re-run classical
+// verification, so a chain whose head block records a wrong order (which no
+// later prev_hash binds) is rejected instead of trusted.
+func TestDeriveRegistryRejectsBogusSolution(t *testing.T) {
+	c := newTestChain(t)
+	sub := Submission{Solution: "35", CircuitHash: "sha256:abc", VerifiedAt: "t"} // true order is 36
+	_, _ = c.Append(Event{Type: EventSubmit, Level: 5, Submission: &sub, Timestamp: "t"})
+	if err := c.Verify(); err != nil {
+		t.Fatalf("hash links are intact by construction: %v", err)
+	}
+	if _, err := DeriveRegistry(c); err == nil {
+		t.Fatal("expected DeriveRegistry to reject a recorded solution that fails classical verification")
+	}
+}
+
+// TestDeriveRegistryRejectsNonIntegerSolution: a toy-order submission whose
+// solution is not an integer cannot have passed verification and must fail replay.
+func TestDeriveRegistryRejectsNonIntegerSolution(t *testing.T) {
+	c := newTestChain(t)
+	sub := Submission{Solution: "not-a-number", CircuitHash: "sha256:abc", VerifiedAt: "t"}
+	_, _ = c.Append(Event{Type: EventSubmit, Level: 5, Submission: &sub, Timestamp: "t"})
+	if _, err := DeriveRegistry(c); err == nil {
+		t.Fatal("expected DeriveRegistry to reject a non-integer toy-order solution")
+	}
+}
+
+// TestDeriveRegistrySkipsVerifierlessFamilies: families without a classical
+// verifier (e.g. quantum-primitive level 1) replay as recorded.
+func TestDeriveRegistrySkipsVerifierlessFamilies(t *testing.T) {
+	c := newTestChain(t)
+	sub := Submission{Solution: "bell-state report", CircuitHash: "sha256:abc", VerifiedAt: "t"}
+	_, _ = c.Append(Event{Type: EventSubmit, Level: 1, Submission: &sub, Timestamp: "t"})
+	r, err := DeriveRegistry(c)
+	if err != nil {
+		t.Fatalf("DeriveRegistry rejected a verifierless family: %v", err)
+	}
+	e, _ := r.Entry(1)
+	if e.State != StateBroken {
+		t.Fatalf("level 1 state = %s, want broken", e.State)
+	}
+}
+
 // TestDeriveRegistryRejectsDoubleSubmit: a second submit on a broken level is
 // invalid and must fail derivation.
 func TestDeriveRegistryRejectsDoubleSubmit(t *testing.T) {
