@@ -1,0 +1,13 @@
+bin/
+dist/
+*.exe
+*.test
+coverage.out
+.DS_Store
+Thumbs.db
+# Local challenge-state registry (created by submit/transition/state)
+qlabcoin-registry.json
+qlabcoin-registry.json.tmp
+
+# Working design notes (kept locally, not part of the repo)
+Nuevo Documento de texto.txt

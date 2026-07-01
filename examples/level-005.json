@@ -1,0 +1,21 @@
+{
+  "id": "qlab-L005-b6816f32eb",
+  "level": 5,
+  "required_logical_qubits": 5,
+  "family": "toy-order-finding",
+  "status": "open",
+  "target": {
+    "base": 2,
+    "description": "Solve a tiny period-finding or discrete-log-shaped challenge.",
+    "hint": "find the multiplicative order of 2 modulo 37 (least k\u003e=1 with 2^k ≡ 1 mod 37)",
+    "modulus": 37,
+    "type": "toy-order-finding",
+    "win_condition": "submit measured output, circuit hash, and reproducible verification notes"
+  },
+  "verification": {
+    "classical": true,
+    "requires_backend_report": true,
+    "requires_circuit_hash": true
+  },
+  "mitigation_after_break": "publish result; open next level"
+}

@@ -1,0 +1,92 @@
+# Qlabcoin
+
+Qlabcoin is an educational blockchain-lab project for measuring practical quantum progress against deliberately small cryptographic challenges.
+
+It is not a cryptocurrency for value transfer. It is a public research clock: each level represents a demonstrated number of useful logical attack qubits applied to a verifiable challenge. Level 1 starts at one logical qubit, then advances step by step toward a Bitcoin-like threshold.
+
+## Core Idea
+
+Qlabcoin separates three quantities that are often confused:
+
+- Physical qubits: atoms, ions, superconducting qubits, photons, or another hardware substrate.
+- Logical qubits: error-corrected or otherwise usable qubits in a reliable computation.
+- Attack qubits: logical qubits actually used to solve a published cryptographic challenge.
+
+Only attack qubits advance the Qlabcoin clock.
+
+## Clocks
+
+```text
+Academic clock: level N = N useful logical attack qubits demonstrated.
+Bitcoin clock: distance to an approximate secp256k1/Shor threshold.
+```
+
+The initial Bitcoin threshold is modeled as:
+
+```text
+logical_qubits_for_ECDLP(n) = 9n + 2 ceil(log2 n) + 10
+```
+
+For a 256-bit prime-field elliptic curve, this gives roughly 2330 logical qubits, before accounting for gate depth, error correction overhead, runtime, routing, and architecture-specific constraints.
+
+## First Milestones
+
+```text
+Level 1: one useful logical qubit in a verifiable circuit.
+Level 2: two useful logical qubits with entanglement or period-finding evidence.
+Level 3: three useful logical qubits in a repeatable quantum subroutine.
+Level 4+: toy order-finding or discrete-log challenges.
+Level 19+: first tiny ECDLP-shaped challenges under the reference resource model.
+Level 2330: approximate Bitcoin-like logical-qubit threshold, not a claim of practical breakability by itself.
+```
+
+## CLI
+
+```bash
+go run ./cmd/qlabcoin clock -max 12
+go run ./cmd/qlabcoin level 19
+go run ./cmd/qlabcoin challenge 5            # includes toy-order target for levels 4-18
+go run ./cmd/qlabcoin verify 5 -solution 36  # check a claimed multiplicative order
+go run ./cmd/qlabcoin submit 5 -solution 36 -circuit sha256:...   # verify + advance to broken
+go run ./cmd/qlabcoin transition 5 hardened
+go run ./cmd/qlabcoin transition 5 reopened  # opens the next level
+go run ./cmd/qlabcoin state                  # dump the local registry
+go run ./cmd/qlabcoin bitcoin
+```
+
+Challenge state is kept in a local JSON file (default `qlabcoin-registry.json`),
+not committed. The lifecycle is `open → claimed → verified → broken → hardened → reopened`;
+`submit` collapses the first three transitions when classical verification passes.
+
+## Research Cycle
+
+```text
+open challenge
+break challenge
+publish proof and hardware/circuit report
+verify classically
+mark level broken
+apply mitigation
+open the next level
+```
+
+## Mitigation Ladder
+
+Qlabcoin should harden itself in visible phases:
+
+```text
+Phase A: exposed public key challenges.
+Phase B: hash-only addresses, pubkey revealed only on spend.
+Phase C: no live UTXO after public-key exposure.
+Phase D: migration window after exposure.
+Phase E: hybrid ECC + hash-based signatures.
+Phase F: post-quantum signatures such as ML-DSA or SLH-DSA.
+```
+
+## Source Assumptions
+
+- Q6100-style hardware is treated as physical-qubit inspiration, not as 6100 logical qubits.
+- The Qlabcoin level is based on demonstrated logical attack qubits.
+- The Bitcoin threshold is a reference line, not a panic line.
+
+See `docs/` for the full project model.

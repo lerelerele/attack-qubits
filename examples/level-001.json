@@ -1,0 +1,18 @@
+{
+  "id": "qlab-L001-f845323307",
+  "level": 1,
+  "required_logical_qubits": 1,
+  "family": "quantum-primitive",
+  "status": "open",
+  "target": {
+    "description": "Demonstrate useful logical attack qubits in a repeatable quantum subroutine.",
+    "type": "quantum-primitive",
+    "win_condition": "submit measured output, circuit hash, and reproducible verification notes"
+  },
+  "verification": {
+    "classical": true,
+    "requires_backend_report": true,
+    "requires_circuit_hash": true
+  },
+  "mitigation_after_break": "publish result; open next level"
+}

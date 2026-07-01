@@ -1,0 +1,108 @@
+# Qlabcoin Specification Draft
+
+## 1. Purpose
+
+Qlabcoin is a challenge chain for studying when quantum hardware can perform useful attacks against small cryptographic targets.
+
+The project must not imply that current quantum hardware can break Bitcoin. Its role is to measure progress from one useful logical attack qubit toward larger cryptographic attacks.
+
+## 2. Units
+
+```text
+physical_qubit
+  A hardware qubit: atom, ion, superconducting circuit, photon, etc.
+
+logical_qubit
+  A corrected or sufficiently reliable computational qubit.
+
+attack_qubit
+  A logical qubit actually used in a submitted attack circuit.
+```
+
+The Qlabcoin level is:
+
+```text
+level = demonstrated_attack_qubits
+```
+
+## 3. Reference Bitcoin Threshold
+
+For elliptic-curve discrete logarithms over prime fields, Qlabcoin uses this initial resource model:
+
+```text
+Q(n) = 9n + 2 ceil(log2 n) + 10
+T(n) = 448 n^3 log2(n) + 4090 n^3
+```
+
+Where:
+
+- `n` is the curve field size in bits.
+- `Q(n)` estimates logical qubits.
+- `T(n)` estimates Toffoli gates.
+
+For `n = 256`:
+
+```text
+Q(256) = 2330 logical qubits
+```
+
+This does not include physical qubit overhead, error correction, routing, runtime, or hardware-specific constraints.
+
+## 4. Level Families
+
+```text
+Levels 1-3:
+  Quantum primitive challenges.
+
+Levels 4-18:
+  Toy period-finding / toy discrete-log challenges.
+
+Levels 19+:
+  Tiny ECDLP-shaped challenges when the reference model can fit at least a one-bit curve.
+
+Level 2330:
+  Approximate secp256k1 logical-qubit reference line.
+```
+
+## 5. Challenge Lifecycle
+
+```text
+open
+  Challenge is published.
+
+claimed
+  A solver submitted a quantum/circuit report and solution.
+
+verified
+  Classical verification accepted the solution.
+
+broken
+  The level is marked broken.
+
+hardened
+  The protocol mitigation was applied.
+
+reopened
+  Next challenge is opened.
+```
+
+## 6. Submission Requirements
+
+Each winning submission should include:
+
+- challenge id;
+- solution;
+- circuit description;
+- circuit hash;
+- measured outputs;
+- number of logical attack qubits used;
+- hardware/backend metadata;
+- reproducibility notes;
+- classical verification proof.
+
+## 7. Non-Goals
+
+- No real financial value.
+- No claim that physical qubits equal logical qubits.
+- No claim that breaking a toy level breaks Bitcoin.
+- No deployment of intentionally vulnerable cryptography for real assets.
