@@ -50,6 +50,7 @@ go run ./cmd/qlabcoin verify 5 -solution 36  # check a claimed multiplicative or
 go run ./cmd/qlabcoin submit 5 -solution 36 -circuit sha256:...   # verify + record on chain
 go run ./cmd/qlabcoin transition 5 hardened
 go run ./cmd/qlabcoin transition 5 reopened  # opens the next level
+go run ./cmd/qlabcoin reproduce 5 -author labB -circuit sha256:... -result reproduced  # independent corroboration
 go run ./cmd/qlabcoin state                  # registry derived from the chain
 go run ./cmd/qlabcoin history                # dump the chain (blocks + hashes)
 go run ./cmd/qlabcoin verify-chain           # check chain integrity + replay

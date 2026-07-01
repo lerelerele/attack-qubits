@@ -86,3 +86,96 @@ func TestDeriveRegistryRoundTrip(t *testing.T) {
 		t.Fatalf("state diverged after round-trip: %+v vs %+v", e1, e2)
 	}
 }
+
+// helper: build a chain with level 5 submitted (broken) and return it.
+func chainWithBrokenLevel5(t *testing.T) *Chain {
+	t.Helper()
+	c := newTestChain(t)
+	sub := Submission{Solution: "36", CircuitHash: "sha256:abc", VerifiedAt: "t"}
+	_, _ = c.Append(Event{Type: EventSubmit, Level: 5, Submission: &sub, Timestamp: "t"})
+	return c
+}
+
+// TestDeriveReproductionIncrements: a positive reproduction on a broken level
+// raises the reproductions counter to 1.
+func TestDeriveReproductionIncrements(t *testing.T) {
+	c := chainWithBrokenLevel5(t)
+	rep := &Reproduction{Author: "lab-b", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	_, _ = c.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	r, err := DeriveRegistry(c)
+	if err != nil {
+		t.Fatalf("DeriveRegistry: %v", err)
+	}
+	e, _ := r.Entry(5)
+	if e.Reproductions != 1 {
+		t.Fatalf("reproductions = %d, want 1", e.Reproductions)
+	}
+}
+
+// TestDeriveReproductionAccumulates: multiple positive reproductions accumulate.
+func TestDeriveReproductionAccumulates(t *testing.T) {
+	c := chainWithBrokenLevel5(t)
+	for _, author := range []string{"lab-b", "lab-c", "lab-d"} {
+		rep := &Reproduction{Author: author, CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+		_, _ = c.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	}
+	r, err := DeriveRegistry(c)
+	if err != nil {
+		t.Fatalf("DeriveRegistry: %v", err)
+	}
+	e, _ := r.Entry(5)
+	if e.Reproductions != 3 {
+		t.Fatalf("reproductions = %d, want 3", e.Reproductions)
+	}
+}
+
+// TestDeriveReproductionFailedDoesNotIncrement: a failed reproduction is
+// recorded but does not add positive confidence.
+func TestDeriveReproductionFailedDoesNotIncrement(t *testing.T) {
+	c := chainWithBrokenLevel5(t)
+	rep := &Reproduction{Author: "lab-x", CircuitHash: "sha256:rep", Result: ReproductionFailed}
+	_, _ = c.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	r, err := DeriveRegistry(c)
+	if err != nil {
+		t.Fatalf("DeriveRegistry: %v", err)
+	}
+	e, _ := r.Entry(5)
+	if e.Reproductions != 0 {
+		t.Fatalf("failed reproduction incremented counter to %d, want 0", e.Reproductions)
+	}
+}
+
+// TestDeriveReproductionRejectsNotBroken: reproducing a level that was never
+// broken is invalid and must fail derivation.
+func TestDeriveReproductionRejectsNotBroken(t *testing.T) {
+	c := newTestChain(t) // level 5 never touched
+	rep := &Reproduction{Author: "lab-b", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	_, _ = c.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	if _, err := DeriveRegistry(c); err == nil {
+		t.Fatal("expected DeriveRegistry to reject a reproduction on a non-broken level")
+	}
+}
+
+// TestDeriveReproductionPersistsAfterRoundTrip: the counter survives save/load.
+func TestDeriveReproductionPersistsAfterRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/chain.json"
+	c1 := NewChain(path)
+	_ = c1.Load()
+	sub := Submission{Solution: "36", CircuitHash: "sha256:abc", VerifiedAt: "t"}
+	_, _ = c1.Append(Event{Type: EventSubmit, Level: 5, Submission: &sub, Timestamp: "t"})
+	rep := &Reproduction{Author: "lab-b", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	_, _ = c1.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	_ = c1.Save()
+
+	c2 := NewChain(path)
+	_ = c2.Load()
+	r, err := DeriveRegistry(c2)
+	if err != nil {
+		t.Fatalf("reload DeriveRegistry: %v", err)
+	}
+	e, _ := r.Entry(5)
+	if e.Reproductions != 1 {
+		t.Fatalf("reproductions after round-trip = %d, want 1", e.Reproductions)
+	}
+}

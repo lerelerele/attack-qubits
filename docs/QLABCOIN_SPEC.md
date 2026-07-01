@@ -100,6 +100,16 @@ Each winning submission should include:
 - reproducibility notes;
 - classical verification proof.
 
+Since Phase 3, all nine fields are modeled by the `Submission` type and accepted
+by the `submit` command (`-circuit`, `-circuit-desc`, `-measured`, `-backend`,
+`-repro-notes`, `-proof`, plus the solution and claimed qubits). Fields are
+optional in the type so older chains still load, but a complete report is the
+documented expectation for an academic submission.
+
+Independent reproductions of an already-broken level are recorded separately as
+`reproduce` events on the chain (see `docs/CHAIN_FORMAT.md`); positive ones raise
+the level's derived `reproductions` counter.
+
 ## 7. Non-Goals
 
 - No real financial value.

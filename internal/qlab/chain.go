@@ -19,20 +19,40 @@ const ZeroHash = "00000000000000000000000000000000000000000000000000000000000000
 // Event types recorded on the chain. Each high-level lifecycle change becomes
 // one event in one new block (1 event = 1 block), keeping the chain auditable.
 const (
-	EventSubmit EventType = "submit" // a verified solution was accepted
-	EventHarden EventType = "harden" // mitigation applied (broken -> hardened)
-	EventReopen EventType = "reopen" // level reopened, next level opened
+	EventSubmit    EventType = "submit"    // a verified solution was accepted
+	EventHarden    EventType = "harden"    // mitigation applied (broken -> hardened)
+	EventReopen    EventType = "reopen"    // level reopened, next level opened
+	EventReproduce EventType = "reproduce" // independent corroboration of a broken level
 )
 
 // EventType labels a chain event.
 type EventType string
 
+// ReproductionResult enumerates the outcomes of an independent reproduction.
+const (
+	ReproductionReproduced = "reproduced"
+	ReproductionFailed     = "failed"
+)
+
+// Reproduction is an independent corroboration of a level that has already been
+// broken. It does not change the level's state; it contributes to the academic
+// confidence in the result.
+type Reproduction struct {
+	Author      string                 `json:"author"`            // lab/team identifier
+	Backend     map[string]interface{} `json:"backend,omitempty"` // hardware/stack metadata
+	CircuitHash string                 `json:"circuit_hash"`      // hash of the reproduction circuit
+	Result      string                 `json:"result"`            // "reproduced" | "failed"
+	Notes       string                 `json:"notes,omitempty"`   // free-form reproducibility notes
+	Timestamp   string                 `json:"timestamp"`         // RFC3339 UTC
+}
+
 // Event is one recorded lifecycle change for a level.
 type Event struct {
-	Type       EventType   `json:"type"`
-	Level      int         `json:"level"`
-	Submission *Submission `json:"submission,omitempty"` // present only for EventSubmit
-	Timestamp  string      `json:"timestamp"`            // RFC3339 UTC
+	Type         EventType     `json:"type"`
+	Level        int           `json:"level"`
+	Submission   *Submission   `json:"submission,omitempty"`   // present only for EventSubmit
+	Reproduction *Reproduction `json:"reproduction,omitempty"` // present only for EventReproduce
+	Timestamp    string        `json:"timestamp"`              // RFC3339 UTC
 }
 
 // Block is one link in the chain. The genesis block has Index 0, PrevHash

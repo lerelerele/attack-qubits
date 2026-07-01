@@ -18,12 +18,6 @@
             "claimed_logical_attack_qubits": 5,
             "solution": "36",
             "circuit_hash": "sha256:example",
-            "backend": {
-              "hardware": "example university lab",
-              "logical_qubits": 5,
-              "notes": "demonstration run",
-              "physical_qubits": 12
-            },
             "verified_at": "2026-07-01T00:00:00Z"
           },
           "timestamp": "2026-07-01T00:00:00Z"
@@ -32,7 +26,7 @@
     },
     {
       "index": 2,
-      "prev_hash": "525d2976eda60f61c1e08d905424b6e3047b794da05c8ed022ec7ad15e4450f7",
+      "prev_hash": "b45cedbfde1cc3d9deded045511a7ba127058d37e51ebfa5735bfc34697fa7be",
       "events": [
         {
           "type": "harden",
@@ -43,11 +37,28 @@
     },
     {
       "index": 3,
-      "prev_hash": "a79ee0b0d45b87fb7fec438e24118974fd3b625e4ca348ccc8f83e3cf872f4af",
+      "prev_hash": "20ce77210e55719aa8827afbcb420b42373cac3ca504dca351e153585a14025f",
       "events": [
         {
           "type": "reopen",
           "level": 5,
+          "timestamp": "2026-07-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "prev_hash": "5b9b8b847189bc183d66a9cb58ec3037998d4b62c99b30a8ab765ee8a8864869",
+      "events": [
+        {
+          "type": "reproduce",
+          "level": 5,
+          "reproduction": {
+            "author": "lab-b",
+            "circuit_hash": "sha256:reproduction",
+            "result": "reproduced",
+            "timestamp": "2026-07-01T00:00:00Z"
+          },
           "timestamp": "2026-07-01T00:00:00Z"
         }
       ]

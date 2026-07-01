@@ -29,6 +29,8 @@ func main() {
 		submit(os.Args[2:])
 	case "transition":
 		transition(os.Args[2:])
+	case "reproduce":
+		reproduce(os.Args[2:])
 	case "state":
 		state(os.Args[2:])
 	case "history":
@@ -52,8 +54,9 @@ Commands:
   qlabcoin level <n>
   qlabcoin challenge <n>
   qlabcoin verify <n> -solution <k>
-  qlabcoin submit <n> -solution <k> -circuit <sha256:...> [-backend <json>] [-chain <path>]
+  qlabcoin submit <n> -solution <k> -circuit <sha256:...> [-backend <json>] [-circuit-desc <text>] [-measured <json>] [-repro-notes <text>] [-proof <text>] [-chain <path>]
   qlabcoin transition <n> <state> [-chain <path>]
+  qlabcoin reproduce <n> -author <lab> -circuit <sha256:...> -result reproduced|failed [-backend <json>] [-notes <text>] [-chain <path>]
   qlabcoin state [-chain <path>]
   qlabcoin history [-chain <path>]
   qlabcoin verify-chain [-chain <path>]
@@ -178,6 +181,10 @@ func submit(args []string) {
 	solution := fs.Int("solution", 0, "claimed multiplicative order")
 	circuit := fs.String("circuit", "", "circuit hash, e.g. sha256:...")
 	backend := fs.String("backend", "", "backend metadata as JSON object")
+	circuitDesc := fs.String("circuit-desc", "", "human-readable circuit description")
+	measured := fs.String("measured", "", "measured outputs as JSON object")
+	reproNotes := fs.String("repro-notes", "", "reproducibility notes")
+	proof := fs.String("proof", "", "classical verification proof")
 	chainPath := fs.String("chain", qlab.DefaultChainPath, "chain file path")
 	_ = fs.Parse(reorderFlags(args))
 	rest := fs.Args()
@@ -198,6 +205,13 @@ func submit(args []string) {
 	if *backend != "" {
 		if err := json.Unmarshal([]byte(*backend), &backendMap); err != nil {
 			fmt.Fprintf(os.Stderr, "invalid -backend JSON: %v\n", err)
+			os.Exit(2)
+		}
+	}
+	var measuredMap map[string]interface{}
+	if *measured != "" {
+		if err := json.Unmarshal([]byte(*measured), &measuredMap); err != nil {
+			fmt.Fprintf(os.Stderr, "invalid -measured JSON: %v\n", err)
 			os.Exit(2)
 		}
 	}
@@ -233,6 +247,10 @@ func submit(args []string) {
 		CircuitHash:                *circuit,
 		Backend:                    backendMap,
 		VerifiedAt:                 now,
+		CircuitDescription:         *circuitDesc,
+		MeasuredOutputs:            measuredMap,
+		ReproducibilityNotes:       *reproNotes,
+		VerificationProof:          *proof,
 	}
 	ev := qlab.Event{
 		Type:       qlab.EventSubmit,
@@ -298,7 +316,78 @@ func transition(args []string) {
 	printJSON(entry)
 }
 
-// transitionEventType maps a target state to the event type recorded on chain.
+// reproduce records an independent corroboration of an already-broken level on
+// the chain. It does not change the level's state; it raises the derived
+// reproductions counter when result is "reproduced".
+func reproduce(args []string) {
+	fs := flag.NewFlagSet("reproduce", flag.ExitOnError)
+	author := fs.String("author", "", "lab/team identifier (required)")
+	circuit := fs.String("circuit", "", "circuit hash of the reproduction (required)")
+	result := fs.String("result", "", "outcome: reproduced|failed (required)")
+	backend := fs.String("backend", "", "backend metadata as JSON object")
+	notes := fs.String("notes", "", "free-form reproducibility notes")
+	chainPath := fs.String("chain", qlab.DefaultChainPath, "chain file path")
+	_ = fs.Parse(reorderFlags(args))
+	rest := fs.Args()
+	if len(rest) != 1 {
+		fmt.Fprintln(os.Stderr, "reproduce requires a level number")
+		os.Exit(1)
+	}
+	n := mustLevel(rest[0])
+	if *author == "" || *circuit == "" || *result == "" {
+		fmt.Fprintln(os.Stderr, "reproduce requires -author, -circuit and -result")
+		os.Exit(1)
+	}
+	if *result != qlab.ReproductionReproduced && *result != qlab.ReproductionFailed {
+		fmt.Fprintf(os.Stderr, "-result must be %q or %q\n", qlab.ReproductionReproduced, qlab.ReproductionFailed)
+		os.Exit(2)
+	}
+	var backendMap map[string]interface{}
+	if *backend != "" {
+		if err := json.Unmarshal([]byte(*backend), &backendMap); err != nil {
+			fmt.Fprintf(os.Stderr, "invalid -backend JSON: %v\n", err)
+			os.Exit(2)
+		}
+	}
+	chain := qlab.NewChain(*chainPath)
+	if err := chain.Load(); err != nil {
+		fatal(err)
+	}
+	reg, err := qlab.DeriveRegistry(chain)
+	if err != nil {
+		fatal(err)
+	}
+	entry, _ := reg.Entry(n)
+	switch entry.State {
+	case qlab.StateBroken, qlab.StateHardened, qlab.StateReopened:
+		// ok: level has been demonstrated and may be corroborated
+	default:
+		fmt.Fprintf(os.Stderr, "level %d is %s, not broken (cannot reproduce)\n", n, entry.State)
+		os.Exit(1)
+	}
+	now := nowRFC3339()
+	rep := qlab.Reproduction{
+		Author:      *author,
+		Backend:     backendMap,
+		CircuitHash: *circuit,
+		Result:      *result,
+		Notes:       *notes,
+		Timestamp:   now,
+	}
+	if _, err := chain.Append(qlab.Event{Type: qlab.EventReproduce, Level: n, Reproduction: &rep, Timestamp: now}); err != nil {
+		fatal(err)
+	}
+	if err := chain.Save(); err != nil {
+		fatal(err)
+	}
+	reg2, err := qlab.DeriveRegistry(chain)
+	if err != nil {
+		fatal(err)
+	}
+	entry2, _ := reg2.Entry(n)
+	printJSON(entry2)
+}
+
 // Only hardened/reopened are reachable via transition; submit/verified are
 // emitted by submit itself, so other targets are not recordable here.
 func transitionEventType(to qlab.EntryState) (qlab.EventType, bool) {

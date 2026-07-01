@@ -24,11 +24,15 @@
 - CLI: history, verify-chain; submit/transition/state now operate on the chain.
 - Remaining: consensus/network (the chain is local for now).
 
-## Phase 3: Academic Clock
+## Phase 3: Academic Clock (done)
 
-- Level 1 starts with one useful logical attack qubit.
-- Require reports and circuit hashes.
-- Track independent reproductions.
+- Submissions now carry the full report from spec §6: circuit description,
+  measured outputs, reproducibility notes, and verification proof (via the
+  `submit` flags).
+- Independent reproductions of a broken level are recorded as `reproduce` events
+  on the chain; positive ones raise a derived `reproductions` counter.
+- Remaining: signed author identity / external review (the chain is local and
+  authorship is not yet cryptographically authenticated).
 
 ## Phase 4: Mitigation Lab
 

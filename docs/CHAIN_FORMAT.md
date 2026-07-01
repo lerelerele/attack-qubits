@@ -56,14 +56,37 @@ edit to a recorded event (or to a link) makes the chain fail verification.
 ## Events
 
 ```text
-submit   a verified solution was accepted (open -> broken)
-harden   mitigation applied (broken -> hardened)
-reopen   level reopened, next level opened (hardened -> reopened)
+submit     a verified solution was accepted (open -> broken)
+harden     mitigation applied (broken -> hardened)
+reopen     level reopened, next level opened (hardened -> reopened)
+reproduce  independent corroboration of an already-broken level
 ```
 
 Each event carries a `level` and an RFC3339 UTC `timestamp`. A `submit` event
 also carries the full `Submission` (challenge id, solution, circuit hash, backend
-metadata, and the `verified_at` timestamp).
+metadata, and the `verified_at` timestamp). A `reproduce` event carries a
+`Reproduction`:
+
+```json
+{
+  "type": "reproduce",
+  "level": 5,
+  "reproduction": {
+    "author": "lab-b",
+    "backend": { "...": "hardware/stack metadata" },
+    "circuit_hash": "sha256:rep",
+    "result": "reproduced",
+    "notes": "independent run on a different backend",
+    "timestamp": "2026-07-01T00:00:00Z"
+  },
+  "timestamp": "2026-07-01T00:00:00Z"
+}
+```
+
+`result` is `"reproduced"` (raises the level's derived `reproductions` counter)
+or `"failed"` (recorded for audit, does not raise the counter). A `reproduce`
+event on a level that is not broken/hardened/reopened is invalid and fails
+`verify-chain` and `state`.
 
 ## Derived state
 
@@ -72,13 +95,16 @@ N?", Qlabcoin replays the chain from the genesis block and applies each event
 with the same transition rules used when recording it:
 
 ```text
-submit  -> open becomes broken
-harden  -> broken becomes hardened
-reopen  -> hardened becomes reopened, and level N+1 is opened
+submit     -> open becomes broken
+harden     -> broken becomes hardened
+reopen     -> hardened becomes reopened, and level N+1 is opened
+reproduce  -> recorded against an already-broken level; positive results
+              increment the level's reproductions counter
 ```
 
 An event that violates a valid transition (e.g. hardening a level that is not
-broken) makes the chain corrupt: `verify-chain` and `state` will refuse it.
+broken, or reproducing one that has never been broken) makes the chain corrupt:
+`verify-chain` and `state` will refuse it.
 
 ## CLI
 
@@ -86,7 +112,8 @@ broken) makes the chain corrupt: `verify-chain` and `state` will refuse it.
 qlabcoin history      # dump the chain (blocks + hashes + events)
 qlabcoin verify-chain # check integrity + replay
 qlabcoin state        # derived registry (replayed from the chain)
+qlabcoin reproduce    # append an independent corroboration of a broken level
 ```
 
-`submit` and `transition` append a block and save the chain; they never edit
-prior blocks.
+`submit`, `transition`, and `reproduce` append a block and save the chain; they
+never edit prior blocks.

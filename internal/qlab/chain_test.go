@@ -116,3 +116,37 @@ func TestChainSaveLoadRoundTrip(t *testing.T) {
 		t.Fatalf("reloaded chain failed Verify: %v", err)
 	}
 }
+
+// TestChainAppendReproduce: a reproduce event chains like any other block.
+func TestChainAppendReproduce(t *testing.T) {
+	c := newTestChain(t)
+	prevHash := c.LastHash()
+	rep := &Reproduction{Author: "lab-b", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	blk, err := c.Append(Event{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"})
+	if err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	if blk.PrevHash != prevHash {
+		t.Fatalf("prev_hash = %s, want %s", blk.PrevHash, prevHash)
+	}
+	if err := c.Verify(); err != nil {
+		t.Fatalf("Verify after reproduce: %v", err)
+	}
+}
+
+// TestBlockHashReproduceDeterministic: identical reproduce events hash alike;
+// differing author yields a different hash.
+func TestBlockHashReproduceDeterministic(t *testing.T) {
+	rep := &Reproduction{Author: "lab-b", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	a := Block{Index: 1, PrevHash: ZeroHash, Events: []Event{{Type: EventReproduce, Level: 5, Reproduction: rep, Timestamp: "t"}}}
+	b := a
+	if BlockHash(a) != BlockHash(b) {
+		t.Fatal("identical reproduce blocks produced different hashes")
+	}
+	rep2 := &Reproduction{Author: "lab-c", CircuitHash: "sha256:rep", Result: ReproductionReproduced}
+	other := a
+	other.Events = []Event{{Type: EventReproduce, Level: 5, Reproduction: rep2, Timestamp: "t"}}
+	if BlockHash(a) == BlockHash(other) {
+		t.Fatal("reproduce blocks with different authors produced the same hash")
+	}
+}

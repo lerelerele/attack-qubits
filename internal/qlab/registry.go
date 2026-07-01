@@ -43,15 +43,22 @@ type Submission struct {
 	CircuitHash                string                 `json:"circuit_hash"`
 	Backend                    map[string]interface{} `json:"backend,omitempty"`
 	VerifiedAt                 string                 `json:"verified_at,omitempty"`
+	// Phase 3 report fields (spec §6 "Submission Requirements"). All optional so
+	// existing chains/tests keep deserializing unchanged.
+	CircuitDescription   string                 `json:"circuit_description,omitempty"`
+	MeasuredOutputs      map[string]interface{} `json:"measured_outputs,omitempty"`
+	ReproducibilityNotes string                 `json:"reproducibility_notes,omitempty"`
+	VerificationProof    string                 `json:"verification_proof,omitempty"`
 }
 
 // Entry is the registry's view of one level: its current state and, once a
 // solver has submitted, the winning submission.
 type Entry struct {
-	Level       int         `json:"level"`
-	ChallengeID string      `json:"challenge_id"`
-	State       EntryState  `json:"state"`
-	Submission  *Submission `json:"submission,omitempty"`
+	Level         int         `json:"level"`
+	ChallengeID   string      `json:"challenge_id"`
+	State         EntryState  `json:"state"`
+	Submission    *Submission `json:"submission,omitempty"`
+	Reproductions int         `json:"reproductions,omitempty"` // independent corroborations (derived from chain)
 }
 
 // registryFile is the on-disk JSON layout.

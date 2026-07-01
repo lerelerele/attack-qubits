@@ -51,9 +51,39 @@ func applyEvent(r *Registry, ev Event) error {
 		return applyEventTransition(r, ev.Level, StateHardened)
 	case EventReopen:
 		return applyEventTransition(r, ev.Level, StateReopened)
+	case EventReproduce:
+		return applyReproduction(r, ev)
 	default:
 		return fmt.Errorf("level %d: unknown event type %q", ev.Level, ev.Type)
 	}
+}
+
+// applyReproduction records an independent corroboration against an already-broken
+// level. Only positive reproductions ("reproduced") raise the entry's counter;
+// failures are recorded on chain (auditable) but do not add confidence. A level
+// that has never been broken cannot be reproduced.
+func applyReproduction(r *Registry, ev Event) error {
+	if ev.Reproduction == nil {
+		return fmt.Errorf("level %d: reproduce event has no reproduction", ev.Level)
+	}
+	e, _ := r.Entry(ev.Level)
+	if !isBrokenOrAfter(e.State) {
+		return fmt.Errorf("level %d is %s, cannot be reproduced (must be broken first)", ev.Level, e.State)
+	}
+	if ev.Reproduction.Result == ReproductionReproduced {
+		e.Reproductions++
+	}
+	return nil
+}
+
+// isBrokenOrAfter reports whether a level has, at some point, been broken: the
+// only states from which a reproduction is meaningful.
+func isBrokenOrAfter(s EntryState) bool {
+	switch s {
+	case StateBroken, StateHardened, StateReopened:
+		return true
+	}
+	return false
 }
 
 // applyEventTransition is the derivation-side counterpart of Registry.Transition
