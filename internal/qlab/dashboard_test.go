@@ -102,8 +102,10 @@ func TestRenderHTMLIsSelfContained(t *testing.T) {
 			t.Fatalf("html dashboard missing %q", want)
 		}
 	}
-	// Self-contained: no external stylesheet, script, or image references.
-	for _, forbidden := range []string{"<script", "src=", "href="} {
+	// Self-contained: no external asset references (stylesheets, scripts,
+	// images, or fonts). Informational links (href) to the project repo are
+	// allowed — the page still renders fully offline; links just don't resolve.
+	for _, forbidden := range []string{"<script", "src=", "<link", "url("} {
 		if strings.Contains(html, forbidden) {
 			t.Fatalf("html dashboard must be self-contained, found %q", forbidden)
 		}
