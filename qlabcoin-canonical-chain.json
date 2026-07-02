@@ -20,6 +20,34 @@
           "timestamp": "2026-07-02T19:10:38Z"
         }
       ]
+    },
+    {
+      "index": 2,
+      "prev_hash": "4fb21b4bd9f5fbfe7ec43e4c25c040f63356f90e137e12550c325fa8c7706c43",
+      "events": [
+        {
+          "type": "submit",
+          "level": 1,
+          "author": "lerelerele",
+          "signature": "tn+YtG5ZkiHIcgt8MLCBXKBdHFwE5tmtUtDNGVNzNoz4NrcoBVFYOy7EpyKcgdQZFxT/0qN/tD7OzK/yRMqoBA==",
+          "submission": {
+            "challenge_id": "qlab-L001-f845323307",
+            "level": 1,
+            "claimed_logical_attack_qubits": 1,
+            "solution": "",
+            "circuit_hash": "sha256:h-q0-plus-state",
+            "verified_at": "2026-07-02T19:22:06Z",
+            "circuit_description": "Hadamard H q0 plus-state ~1000 shots",
+            "measured_outputs": {
+              "0": 512,
+              "1": 488
+            },
+            "reproducibility_notes": "H q0, ~1000 shots, 50/50",
+            "verification_proof": "1-qubit; outcomes within +/-10% of 50%"
+          },
+          "timestamp": "2026-07-02T19:22:06Z"
+        }
+      ]
     }
   ]
 }
