@@ -23,6 +23,7 @@ type Dashboard struct {
 	GeneratedAt        string            `json:"generated_at"`
 	MaxBrokenLevel     int               `json:"max_broken_level"`
 	MaxBrokenFamily    string            `json:"max_broken_family,omitempty"`
+	MaxBrokenAuthor    string            `json:"max_broken_author,omitempty"`
 	TotalReproductions int               `json:"total_reproductions"`
 	OpenLevels         []int             `json:"open_levels,omitempty"`
 	Blocks             int               `json:"blocks"`
@@ -33,7 +34,15 @@ type Dashboard struct {
 	BitcoinThreshold   int               `json:"bitcoin_threshold"`
 	DistancePercent    float64           `json:"distance_percent"`
 	Distances          []ProfileDistance `json:"distances"`
+	Demonstrations     []Demonstration   `json:"demonstrations,omitempty"`
 	Note               string            `json:"note"`
+}
+
+// Demonstration credits the solver of one broken level.
+type Demonstration struct {
+	Level  int    `json:"level"`
+	Author string `json:"author"`
+	Family string `json:"family"`
 }
 
 // BuildDashboard assembles the snapshot from a chain and its derived registry.
@@ -41,12 +50,21 @@ type Dashboard struct {
 func BuildDashboard(c *Chain, r *Registry, generatedAt string) Dashboard {
 	maxBroken := r.MaxBrokenLevel()
 	var open []int
+	var demos []Demonstration
 	repro := 0
 	for _, e := range r.All() {
 		if e.State == StateOpen {
 			open = append(open, e.Level)
 		}
 		repro += e.Reproductions
+		// Credit every demonstrated level (broken or after, with a submission).
+		if isBrokenOrAfter(e.State) && e.Submission != nil {
+			demos = append(demos, Demonstration{
+				Level:  e.Level,
+				Author: e.Submission.Author,
+				Family: LevelSpec(e.Level).Family,
+			})
+		}
 	}
 	if len(open) == 0 && maxBroken == 0 {
 		open = []int{1} // fresh project: the frontier is level 1
@@ -67,10 +85,14 @@ func BuildDashboard(c *Chain, r *Registry, generatedAt string) Dashboard {
 		BitcoinThreshold:   BitcoinLogicalThreshold,
 		DistancePercent:    100 * float64(maxBroken) / float64(BitcoinLogicalThreshold),
 		Distances:          DistanceReport(maxBroken),
+		Demonstrations:     demos,
 		Note:               dashboardNote,
 	}
 	if maxBroken > 0 {
 		d.MaxBrokenFamily = LevelSpec(maxBroken).Family
+		if e, ok := r.Entry(maxBroken); ok && e.Submission != nil {
+			d.MaxBrokenAuthor = e.Submission.Author
+		}
 	}
 	return d
 }
@@ -84,6 +106,9 @@ func (d Dashboard) RenderText() string {
 	fmt.Fprintf(&b, "Academic clock\n")
 	if d.MaxBrokenLevel > 0 {
 		fmt.Fprintf(&b, "  Highest broken level      : %d (%s)\n", d.MaxBrokenLevel, d.MaxBrokenFamily)
+		if d.MaxBrokenAuthor != "" {
+			fmt.Fprintf(&b, "  Demonstrated by           : %s\n", d.MaxBrokenAuthor)
+		}
 	} else {
 		fmt.Fprintf(&b, "  Highest broken level      : none yet\n")
 	}
@@ -110,6 +135,13 @@ func (d Dashboard) RenderText() string {
 		fmt.Fprintf(&b, "  %-13s %9d %10d %13d %14d %13d\n",
 			p.Profile, p.PhysicalPerLogical, p.LogicalPerProcessor,
 			p.MaxCurveBitsPerProcessor, p.ProcessorsForBitcoin, p.PhysicalQubitsForBitcoin)
+	}
+	if len(d.Demonstrations) > 0 {
+		fmt.Fprintf(&b, "\nDemonstrations\n")
+		fmt.Fprintf(&b, "  %-6s %-22s %s\n", "LEVEL", "FAMILY", "DEMONSTRATED BY")
+		for _, dm := range d.Demonstrations {
+			fmt.Fprintf(&b, "  %-6d %-22s %s\n", dm.Level, dm.Family, dm.Author)
+		}
 	}
 	fmt.Fprintf(&b, "\nNote: %s\n", d.Note)
 	return b.String()
@@ -177,5 +209,10 @@ var dashboardTmpl = template.Must(template.New("dashboard").Parse(`<!DOCTYPE htm
 {{range .Distances}}<tr><td>{{.Profile}}</td>{{if .PhysicalPerLogical}}<td>{{.PhysicalPerLogical}}</td><td>{{.LogicalPerProcessor}}</td><td>{{.MaxCurveBitsPerProcessor}}</td><td>{{.ProcessorsForBitcoin}}</td><td>{{.PhysicalQubitsForBitcoin}}</td>{{else}}<td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td>{{end}}</tr>
 {{end}}</table>
 <div class="note">{{.Note}}<br>Active mitigation: {{.MitigationDesc}}</div>
+{{if .Demonstrations}}<h2>Demonstrations</h2>
+<table>
+<tr><th>Level</th><th>Family</th><th>Demonstrated by</th></tr>
+{{range .Demonstrations}}<tr><td>{{.Level}}</td><td>{{.Family}}</td><td>{{.Author}}</td></tr>
+{{end}}</table>{{end}}
 </div></body></html>
 `))
